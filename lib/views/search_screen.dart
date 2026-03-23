@@ -49,11 +49,11 @@ class _SearchScreenState extends State<SearchScreen> {
                 // ---- Search Form ----
                 Container(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: AppColors.darkSurface,
-                    borderRadius: const BorderRadius.vertical(
+                    borderRadius: BorderRadius.vertical(
                         bottom: Radius.circular(24)),
-                    border: const Border(
+                    border: Border(
                       bottom: BorderSide(color: AppColors.darkDivider),
                     ),
                   ),
@@ -340,7 +340,7 @@ class _ErrorState extends StatelessWidget {
             AnimatedGradientButton(
               label: 'RETRY',
               icon: Icons.refresh_rounded,
-              colors: [AppColors.neonRed, AppColors.neonOrange],
+              colors: const [AppColors.neonRed, AppColors.neonOrange],
               onPressed: vm.search,
             ),
           ],
@@ -400,7 +400,7 @@ class _VolunteerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlowingCard(
-      glowColors: [AppColors.neonBlue, AppColors.neonCyan],
+      glowColors: const [AppColors.neonBlue, AppColors.neonCyan],
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -408,7 +408,7 @@ class _VolunteerCard extends StatelessWidget {
           Container(
             width: 52,
             height: 52,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
               gradient: AppGradients.blue,
             ),

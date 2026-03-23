@@ -169,7 +169,7 @@ class SupportModal extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.mail_outline,
+                        const Icon(Icons.mail_outline,
                             color: AppColors.neonCyan, size: 20),
                         const SizedBox(width: 12),
                         Expanded(

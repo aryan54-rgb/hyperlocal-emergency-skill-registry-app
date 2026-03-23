@@ -165,11 +165,11 @@ class AppTheme {
         fillColor: surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.darkDivider),
+          borderSide: const BorderSide(color: AppColors.darkDivider),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.darkDivider),
+          borderSide: const BorderSide(color: AppColors.darkDivider),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -177,7 +177,7 @@ class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.neonRed, width: 2),
+          borderSide: const BorderSide(color: AppColors.neonRed, width: 2),
         ),
         labelStyle: AppTextStyles.body(scale: textScale).copyWith(color: AppColors.textMuted),
         hintStyle: AppTextStyles.body(scale: textScale).copyWith(color: AppColors.textMuted),
@@ -195,7 +195,7 @@ class AppTheme {
         backgroundColor: surface,
         selectedColor: primary.withOpacity(0.3),
         labelStyle: AppTextStyles.caption(scale: textScale).copyWith(color: text),
-        side: BorderSide(color: AppColors.darkDivider),
+        side: const BorderSide(color: AppColors.darkDivider),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       switchTheme: SwitchThemeData(
@@ -211,7 +211,7 @@ class AppTheme {
           (states) => states.contains(WidgetState.selected) ? primary : Colors.transparent,
         ),
         checkColor: WidgetStateProperty.all(Colors.white),
-        side: BorderSide(color: AppColors.textMuted),
+        side: const BorderSide(color: AppColors.textMuted),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),
     );
@@ -223,7 +223,7 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       scaffoldBackgroundColor: AppColors.lightBg,
-      colorScheme: ColorScheme.light(
+      colorScheme: const ColorScheme.light(
         primary: AppColors.neonRed,
         secondary: AppColors.neonBlue,
         surface: AppColors.lightSurface,
@@ -231,7 +231,7 @@ class AppTheme {
         onSurface: Colors.black87,
       ),
       textTheme: _buildTextTheme(Colors.black87, textScale),
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.lightSurface,
         elevation: 0,
         foregroundColor: Colors.black87,

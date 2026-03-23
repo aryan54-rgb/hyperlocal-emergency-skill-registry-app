@@ -60,7 +60,7 @@ class _EmergencyFABState extends State<EmergencyFAB>
         ),
         title: Row(
           children: [
-            Icon(Icons.emergency, color: AppColors.neonRed, size: 28),
+            const Icon(Icons.emergency, color: AppColors.neonRed, size: 28),
             const SizedBox(width: 12),
             Text(
               'EMERGENCY',
@@ -84,7 +84,7 @@ class _EmergencyFABState extends State<EmergencyFAB>
               ),
               child: Row(
                 children: [
-                  Icon(Icons.phone, color: AppColors.neonRed, size: 20),
+                  const Icon(Icons.phone, color: AppColors.neonRed, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(

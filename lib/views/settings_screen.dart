@@ -30,7 +30,7 @@ class SettingsScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: [
           // ---- Appearance ----
-          FadeSlideIn(
+          const FadeSlideIn(
             child: _SettingsSectionHeader(
                 label: 'APPEARANCE', icon: Icons.palette_outlined),
           ),
@@ -64,8 +64,8 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // ---- Accessibility ----
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 140),
+          const FadeSlideIn(
+            delay: Duration(milliseconds: 140),
             child: _SettingsSectionHeader(
                 label: 'ACCESSIBILITY', icon: Icons.accessibility_new_rounded),
           ),
@@ -99,8 +99,8 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // ---- About ----
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 240),
+          const FadeSlideIn(
+            delay: Duration(milliseconds: 240),
             child: _SettingsSectionHeader(
                 label: 'ABOUT', icon: Icons.info_outline_rounded),
           ),
@@ -157,8 +157,8 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 16),
 
           // ---- Team ----
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 320),
+          const FadeSlideIn(
+            delay: Duration(milliseconds: 320),
             child: _SettingsSectionHeader(
                 label: 'TEAM', icon: Icons.group_outlined),
           ),
@@ -374,7 +374,7 @@ class _ToggleTile extends StatelessWidget {
             Switch(
               value: value,
               onChanged: onChanged,
-              activeColor: color,
+              activeThumbColor: color,
             ),
           ],
         ),
