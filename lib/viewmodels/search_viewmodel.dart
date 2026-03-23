@@ -45,8 +45,6 @@ class SearchViewModel extends ChangeNotifier {
       _state = SearchState.error;
     }
     notifyListeners();
-    print("LOCALITY SENT: '${locality.trim()}'");
-print("SKILL SENT: '${emergencyType.trim()}'");
 
   }
 
