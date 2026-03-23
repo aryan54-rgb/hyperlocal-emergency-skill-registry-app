@@ -5,7 +5,6 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../core/animations.dart';
-import '../core/constants.dart';
 import '../widgets/animated_button.dart';
 import '../widgets/animated_stat_counter.dart';
 import '../widgets/emergency_fab.dart';
@@ -48,7 +47,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
     final safeTop = MediaQuery.of(context).padding.top;
     final safeBottom = MediaQuery.of(context).padding.bottom;
 
@@ -197,9 +195,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(color: AppColors.glassBorder),
                         ),
-                        child: Row(
+                        child: const Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: const [
+                          children: [
                             StatCounterTile(
                               value: 2400,
                               suffix: '+',
@@ -235,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         child: AnimatedGradientButton(
                           label: 'REGISTER AS VOLUNTEER',
                           icon: Icons.person_add_outlined,
-                          colors: [AppColors.neonRed, AppColors.neonPurple],
+                          colors: const [AppColors.neonRed, AppColors.neonPurple],
                           onPressed: () =>
                               Navigator.pushNamed(context, '/register'),
                           semanticLabel: 'Register as a volunteer',
@@ -325,7 +323,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               bottom: safeBottom + 24,
               right: 24,
               child: EmergencyFAB(
-                onConfirm: () => Navigator.pushNamed(context, '/search'),
+                onConfirm: () => Navigator.pushNamed(context, '/emergency-request'),
               ),
             ),
 

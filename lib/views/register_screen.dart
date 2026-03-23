@@ -8,6 +8,7 @@ import 'package:confetti/confetti.dart';
 import '../core/theme.dart';
 import '../core/animations.dart';
 import '../core/constants.dart';
+import '../core/location_service.dart';
 import '../viewmodels/register_viewmodel.dart';
 import '../widgets/animated_button.dart';
 
@@ -49,7 +50,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _submit(RegisterViewModel vm) async {
-    // Sync controller values to VM
+    // Sync auto-filled location from viewmodel to text controllers
+    if (vm.locality.isNotEmpty && _localityCtrl.text.isEmpty) {
+      _localityCtrl.text = vm.locality;
+    }
+    if (vm.city.isNotEmpty && _cityCtrl.text.isEmpty) {
+      _cityCtrl.text = vm.city;
+    }
+    if (vm.selectedState.isNotEmpty && _stateCtrl.text.isEmpty) {
+      _stateCtrl.text = vm.selectedState;
+    }
+
+    // Sync all controller values to VM
     vm.name = _nameCtrl.text;
     vm.phone = _phoneCtrl.text;
     vm.email = _emailCtrl.text;
@@ -70,6 +82,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
       create: (_) => RegisterViewModel(),
       child: Consumer<RegisterViewModel>(
         builder: (context, vm, _) {
+          // Sync auto-filled location to text controllers in real-time
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (vm.locality.isNotEmpty && _localityCtrl.text.isEmpty) {
+              _localityCtrl.text = vm.locality;
+            }
+            if (vm.city.isNotEmpty && _cityCtrl.text.isEmpty) {
+              _cityCtrl.text = vm.city;
+            }
+            if (vm.selectedState.isNotEmpty && _stateCtrl.text.isEmpty) {
+              _stateCtrl.text = vm.selectedState;
+            }
+          });
+
           // Show success overlay
           if (vm.state == RegisterState.success) {
             return _SuccessScreen(
@@ -182,6 +207,80 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 : null,
                           ),
                         ),
+                        const SizedBox(height: 12),
+
+                        // ---- Auto-fill Location Button ----
+                        FadeSlideIn(
+                          delay: const Duration(milliseconds: 230),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                            child: AnimatedGradientButton(
+                              label: vm.isGettingLocation
+                                  ? 'GETTING YOUR LOCATION...'
+                                  : 'USE MY CURRENT LOCATION',
+                              icon: Icons.my_location_outlined,
+                              isLoading: vm.isGettingLocation,
+                              colors: const [AppColors.neonBlue, Color(0xFF00A8FF)],
+                              onPressed: vm.isGettingLocation ? null : () => vm.autoFillLocationFromGPS(),
+                              semanticLabel: 'Auto-fill location fields using GPS coordinates',
+                            ),
+                          ),
+                        ),
+
+                        // ---- Location Error Message ----
+                        if (vm.locationErrorMessage != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: FadeSlideIn(
+                              delay: const Duration(milliseconds: 240),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.neonRed.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: AppColors.neonRed.withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.error_outline,
+                                      color: AppColors.neonRed,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        vm.locationErrorMessage!,
+                                        style: AppTextStyles.caption().copyWith(
+                                          color: AppColors.neonRed,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ),
+                                    if (vm.locationPermissionError)
+                                      GestureDetector(
+                                        onTap: () => LocationService.instance.openLocationSettings(),
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(left: 8),
+                                          child: Text(
+                                            'Settings',
+                                            style: AppTextStyles.caption().copyWith(
+                                              color: AppColors.neonBlue,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+
                         const SizedBox(height: 14),
 
                         Row(
@@ -330,11 +429,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 icon: const Icon(Icons.keyboard_arrow_down,
                                     color: AppColors.textMuted),
                                 items: AppConstants.availabilityOptions.map((option) {
-  return DropdownMenuItem<String>(
-    value: option['value'],
-    child: Text(option['label']!),
-  );
-}).toList(),
+                                  return DropdownMenuItem<String>(
+                                    value: option['value'],
+                                    child: Text(option['label']!),
+                                  );
+                                }).toList(),
 
                                 onChanged: (v) {
                                   if (v != null) vm.setAvailability(v);
@@ -559,7 +658,7 @@ class _GlowTextField extends StatefulWidget {
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final String? Function(String?)? validator;
-  final bool obscureText;
+  final bool obscureText = false;
 
   const _GlowTextField({
     required this.controller,
@@ -568,7 +667,6 @@ class _GlowTextField extends StatefulWidget {
     this.keyboardType,
     this.textInputAction,
     this.validator,
-    this.obscureText = false,
   });
 
   @override
