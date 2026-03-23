@@ -14,6 +14,13 @@ class Volunteer {
   final String availability;
   final bool isActive;
   final DateTime? registeredAt;
+  
+  /// Geolocation data (optional - for emergency matching)
+  final double? latitude;
+  final double? longitude;
+  
+  /// Distance in kilometers (calculated during emergency matching)
+  final double? distanceKm;
 
   const Volunteer({
     required this.id,
@@ -27,6 +34,9 @@ class Volunteer {
     required this.availability,
     this.isActive = true,
     this.registeredAt,
+    this.latitude,
+    this.longitude,
+    this.distanceKm,
   });
 
   // ---- JSON Deserialization ----
@@ -45,6 +55,9 @@ class Volunteer {
       registeredAt: json['registered_at'] != null
           ? DateTime.tryParse(json['registered_at'].toString())
           : null,
+      latitude: json['latitude'] is num ? (json['latitude'] as num).toDouble() : null,
+      longitude: json['longitude'] is num ? (json['longitude'] as num).toDouble() : null,
+      distanceKm: json['distance_km'] is num ? (json['distance_km'] as num).toDouble() : null,
     );
   }
 
@@ -62,6 +75,9 @@ class Volunteer {
       'availability': availability,
       'is_active': isActive,
       if (registeredAt != null) 'registered_at': registeredAt!.toIso8601String(),
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (distanceKm != null) 'distance_km': distanceKm,
     };
   }
 

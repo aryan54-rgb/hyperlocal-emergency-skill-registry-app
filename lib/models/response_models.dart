@@ -68,6 +68,54 @@ class SearchResponse {
   int get count => volunteers.length;
 }
 
+/// Response from POST /api/emergency/match
+/// Sorted by distance (nearest first) and availability
+class EmergencyMatchResponse {
+  final List<Volunteer> responders; // Already sorted by distance + availability
+  final int? total;
+  final String? message;
+  final double? userLatitude;
+  final double? userLongitude;
+  final String? emergencyType;
+
+  const EmergencyMatchResponse({
+    required this.responders,
+    this.total,
+    this.message,
+    this.userLatitude,
+    this.userLongitude,
+    this.emergencyType,
+  });
+
+  factory EmergencyMatchResponse.fromJson(Map<String, dynamic> json) {
+    List<dynamic> rawList = [];
+    if (json['responders'] is List) {
+      rawList = json['responders'] as List<dynamic>;
+    } else if (json['data'] is List) {
+      rawList = json['data'] as List<dynamic>;
+    } else if (json['results'] is List) {
+      rawList = json['results'] as List<dynamic>;
+    }
+
+    return EmergencyMatchResponse(
+      responders: rawList
+          .map((e) => Volunteer.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      total: json['total'] as int? ?? rawList.length,
+      message: json['message']?.toString(),
+      userLatitude: json['user_latitude'] is num ? (json['user_latitude'] as num).toDouble() : null,
+      userLongitude: json['user_longitude'] is num ? (json['user_longitude'] as num).toDouble() : null,
+      emergencyType: json['emergency_type']?.toString(),
+    );
+  }
+
+  bool get isEmpty => responders.isEmpty;
+  int get count => responders.length;
+  
+  /// Get top N responders sorted by distance
+  List<Volunteer> getTopResponders(int limit) => responders.take(limit).toList();
+}
+
 /// Stats for the Impact Dashboard (mock-ready structure)
 class DashboardStats {
   final int totalVolunteers;

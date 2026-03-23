@@ -4,6 +4,7 @@
 //
 // Architecture: MVVM + Provider
 // Clean structure: core / models / viewmodels / views / widgets
+//
 // ============================================================
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -19,6 +20,7 @@ import 'views/onboarding_screen.dart';
 import 'views/home_screen.dart';
 import 'views/register_screen.dart';
 import 'views/search_screen.dart';
+import 'views/emergency_request_screen.dart';
 import 'views/dashboard_screen.dart';
 import 'views/settings_screen.dart';
 
@@ -40,12 +42,6 @@ void main() async {
     url: supabaseUrl,
     anonKey: supabasePublishableKey,
   );
-
-  // Force portrait orientation
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -112,6 +108,7 @@ class EmergencyRegistryApp extends StatelessWidget {
         '/home': (_) => const HomeScreen(),
         '/register': (_) => const RegisterScreen(),
         '/search': (_) => const SearchScreen(),
+        '/emergency-request': (_) => const EmergencyRequestScreen(),
         '/dashboard': (_) => const DashboardScreen(),
         '/settings': (_) => const SettingsScreen(),
       },
@@ -130,6 +127,8 @@ class EmergencyRegistryApp extends StatelessWidget {
                 return const RegisterScreen();
               case '/search':
                 return const SearchScreen();
+              case '/emergency-request':
+                return const EmergencyRequestScreen();
               case '/dashboard':
                 return const DashboardScreen();
               case '/settings':

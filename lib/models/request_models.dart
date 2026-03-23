@@ -13,6 +13,8 @@ class RegisterRequest {
   final List<String> skills;
   final String availability;
   final bool consentGiven;
+  final double? latitude;  // Geolocation data (optional - for location-based services)
+  final double? longitude;
 
   const RegisterRequest({
     required this.name,
@@ -24,6 +26,8 @@ class RegisterRequest {
     required this.skills,
     required this.availability,
     required this.consentGiven,
+    this.latitude,
+    this.longitude,
   });
 
   Map<String, dynamic> toJson() {
@@ -37,6 +41,8 @@ class RegisterRequest {
       'skills': skills,
       'availability': availability,
       'consent_given': consentGiven,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
     };
   }
 }
@@ -55,4 +61,29 @@ class SearchRequest {
         'locality': locality,
         'emergency_type': emergencyType,
       };
+}
+
+/// Payload for POST /api/emergency/match (smart emergency matching)
+/// Sends user's geolocation + emergency type to find nearest responders
+class EmergencyMatchRequest {
+  final double latitude;
+  final double longitude;
+  final String emergencyType;
+  final double radiusKm; // Search radius in kilometers (optional, default 5km)
+
+  const EmergencyMatchRequest({
+    required this.latitude,
+    required this.longitude,
+    required this.emergencyType,
+    this.radiusKm = 5.0,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'latitude': latitude,
+      'longitude': longitude,
+      'emergency_type': emergencyType,
+      'radius_km': radiusKm,
+    };
+  }
 }
