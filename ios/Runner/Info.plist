@@ -66,5 +66,10 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Location Permissions for Emergency Matching Feature -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs your location to find emergency responders and volunteers near you</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs your location to find emergency responders and volunteers near you</string>
 </dict>
 </plist>

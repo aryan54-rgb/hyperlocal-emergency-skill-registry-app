@@ -19,9 +19,12 @@ dependencies:
   # Local storage
   shared_preferences: ^2.2.2
   
+  # Location & Geolocation
+  geolocator: ^10.1.0
+  geocoding: ^2.1.1
+  
   # UI enhancements
   confetti: ^0.8.0
-
 
   
   # Font
