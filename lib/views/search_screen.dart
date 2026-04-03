@@ -399,6 +399,9 @@ class _VolunteerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAvailable = volunteer.availability.toLowerCase() != 'busy';
+    final hasLiveLocation = volunteer.hasLiveLocationAvailable;
+
     return GlowingCard(
       glowColors: const [AppColors.neonBlue, AppColors.neonCyan],
       child: Row(
@@ -462,6 +465,33 @@ class _VolunteerCard extends StatelessWidget {
                       style: AppTextStyles.caption(),
                     ),
                   ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: hasLiveLocation
+                        ? AppColors.neonGreen.withOpacity(0.15)
+                        : AppColors.textMuted.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: hasLiveLocation
+                          ? AppColors.neonGreen.withOpacity(0.35)
+                          : AppColors.textMuted.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Text(
+                    hasLiveLocation
+                        ? '\u{1F4CD} Live location available'
+                        : 'Location not shared',
+                    style: AppTextStyles.caption().copyWith(
+                      color: hasLiveLocation
+                          ? AppColors.neonGreen
+                          : AppColors.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -527,15 +557,15 @@ class _VolunteerCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
-                  color: volunteer.isActive
+                  color: isAvailable
                       ? AppColors.neonGreen.withOpacity(0.15)
                       : AppColors.textMuted.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  volunteer.isActive ? 'ACTIVE' : 'BUSY',
+                  isAvailable ? 'AVAILABLE' : 'BUSY',
                   style: AppTextStyles.caption().copyWith(
-                    color: volunteer.isActive
+                    color: isAvailable
                         ? AppColors.neonGreen
                         : AppColors.textMuted,
                     fontSize: 9,
