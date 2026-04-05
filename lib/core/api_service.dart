@@ -326,7 +326,7 @@ class ApiService {
       } else if (payload['data'] is List) {
         rawList = payload['data'] as List<dynamic>;
       } else if (response is List) {
-        rawList = response as List<dynamic>;
+        rawList = response;
       }
 
       final List<Volunteer> responders = rawList
@@ -497,12 +497,12 @@ class ApiService {
 
   /// Fetch all volunteers with their live location
   ///
-  /// Returns only volunteers who have enabled location sharing
-  /// Includes: name, skills, availability, latitude, longitude, distance (calculated by frontend)
+  /// Uses a direct table query (no RPC required).
+  /// Returns volunteers who have valid latitude/longitude coordinates.
   ///
   /// Optional parameters:
   /// - locality: Filter by specific locality
-  /// - radiusKm: If provided with user location, only return volunteers within radius
+  /// - radiusKm: Not used in direct query mode (filtering done client-side)
   Future<ApiResult<List<Volunteer>>> fetchVolunteersWithLocation({
     String? locality,
     double? userLatitude,
@@ -510,37 +510,39 @@ class ApiService {
     double? radiusKm,
   }) async {
     try {
-      final response = await _client.rpc(
-        'get_volunteers_with_location',
-        params: {
-          if (locality != null) 'p_locality': locality.trim(),
-          if (userLatitude != null) 'p_user_latitude': userLatitude,
-          if (userLongitude != null) 'p_user_longitude': userLongitude,
-          if (radiusKm != null) 'p_radius_km': radiusKm,
-        },
-      );
-      final payload = _normalizeRpcResponse(response);
-
-      // Parse response - handle multiple formats
-      List<dynamic> rawList = [];
-      if (payload['success'] == false) {
-        return ApiResult.failure(
-          payload['error']?.toString() ?? 'Failed to fetch volunteer locations',
-          ApiErrorType.server,
+      // ---- Mock data mode for demo/testing ----
+      if (useMockEmergencyData) {
+        await Future.delayed(const Duration(milliseconds: 600));
+        final mockVolunteers = MockEmergencyData.generateMockMapVolunteers(
+          userLatitude: userLatitude ?? 20.5937,
+          userLongitude: userLongitude ?? 78.9629,
         );
+        return ApiResult.success(mockVolunteers);
       }
-      if (payload['volunteers'] is List) {
-        rawList = payload['volunteers'] as List<dynamic>;
-      } else if (payload['data'] is List) {
-        rawList = payload['data'] as List<dynamic>;
-      } else if (response is List) {
-        rawList = response as List<dynamic>;
+
+      // ---- Direct table query (no RPC needed) ----
+      var query = _client
+          .from('volunteers')
+          .select(
+            'id, name, phone, locality, city, state, skills, availability, consent_given, created_at, latitude, longitude, last_updated, is_location_shared',
+          )
+          .eq('consent_given', true)
+          .not('latitude', 'is', null)
+          .not('longitude', 'is', null);
+
+      if (locality != null && locality.trim().isNotEmpty) {
+        query = query.ilike('locality', '%${locality.trim()}%');
       }
+
+      final response = await query.order('created_at', ascending: false);
+
+      final rawList = response as List<dynamic>;
 
       final List<Volunteer> volunteers = rawList
-          .map<Volunteer>((item) =>
-              Volunteer.fromJson(Map<String, dynamic>.from(item)))
-          .where((volunteer) => volunteer.hasLiveLocationAvailable)
+          .map<Volunteer>(
+            (item) => Volunteer.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .where((volunteer) => volunteer.hasValidLocation)
           .toList();
 
       return ApiResult.success(volunteers);

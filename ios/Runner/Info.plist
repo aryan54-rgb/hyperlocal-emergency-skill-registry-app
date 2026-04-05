@@ -70,6 +70,8 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs your location to find emergency responders and volunteers near you</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>This app needs your location to find emergency responders and volunteers near you</string>
+	<string>This app needs your location to keep your volunteer availability discoverable for nearby emergencies</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs your location to keep your volunteer availability discoverable for nearby emergencies</string>
 </dict>
 </plist>

@@ -50,8 +50,8 @@ class _AnimatedGradientButtonState extends State<AnimatedGradientButton>
 
   @override
   void dispose() {
-    super.dispose();
     _controller.dispose();
+    super.dispose();
   }
 
   void _onTapDown(TapDownDetails _) => _controller.forward();
@@ -183,7 +183,10 @@ class _OutlinedAnimatedButtonState extends State<OutlinedAnimatedButton>
   }
 
   @override
-  void dispose() => _controller.dispose();
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

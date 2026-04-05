@@ -24,6 +24,7 @@ class ResponderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final distance = responder.distanceKm;
+    final isAvailable = responder.availability.toLowerCase() != 'busy';
     final distanceText = distance != null
         ? '${distance.toStringAsFixed(1)} km away'
         : 'Distance unknown';
@@ -118,7 +119,7 @@ class ResponderCard extends StatelessWidget {
               ),
 
               // Active Status Badge
-              if (responder.isActive)
+              if (isAvailable)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -141,7 +142,7 @@ class ResponderCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Active',
+                        'Available',
                         style: AppTextStyles.caption().copyWith(
                           color: Colors.green,
                           fontWeight: FontWeight.w600,

@@ -42,7 +42,7 @@ class MapViewModel extends ChangeNotifier {
   MapState get state => _state;
   List<Volunteer> get volunteers => _volunteers;
   String? get errorMessage => _errorMessage;
-  
+
   double? get userLatitude => _userLatitude;
   double? get userLongitude => _userLongitude;
   DateTime? get lastLocationUpdate => _lastLocationUpdate;
@@ -103,15 +103,14 @@ class MapViewModel extends ChangeNotifier {
     _isInitialized = true;
   }
 
-  /// Load volunteers with location sharing enabled
+  /// Load volunteers with location data.
+  /// Even if location permission is denied, we still fetch volunteers
+  /// so the map can display them (just without distance calculations).
   Future<void> loadVolunteers() async {
-    // Get user location first
+    // Get user location first (best effort — don't block on failure)
     await _fetchUserLocation(setLoadingState: _volunteers.isEmpty);
 
-    if (_state == MapState.locationPermissionDenied) {
-      return;
-    }
-
+    // Proceed to load volunteers regardless of location permission result.
     _state = MapState.loading;
     _errorMessage = null;
     notifyListeners();
@@ -127,7 +126,7 @@ class MapViewModel extends ChangeNotifier {
     }
 
     _volunteers = (result.data ?? [])
-        .where((volunteer) => volunteer.hasLiveLocationAvailable)
+        .where((volunteer) => volunteer.hasValidLocation)
         .toList();
 
     if (_volunteers.isEmpty) {
@@ -162,11 +161,14 @@ class MapViewModel extends ChangeNotifier {
 
     if (result.isFailure) {
       _locationErrorType = result.errorType;
-      _state = result.errorType == LocationErrorType.permissionDenied ||
-              result.errorType == LocationErrorType.permissionDeniedForever
-          ? MapState.locationPermissionDenied
-          : MapState.error;
-      _errorMessage = LocationService.getErrorMessage(_locationErrorType);
+      // Log the location error but do NOT set the overall state to
+      // locationPermissionDenied — we still want to load volunteers.
+      debugPrint(
+        '[MapViewModel] Location error: ${LocationService.getErrorMessage(_locationErrorType)}',
+      );
+      if (!setLoadingState && previousState != MapState.loading) {
+        _state = previousState;
+      }
       notifyListeners();
       return;
     }
@@ -216,7 +218,7 @@ class MapViewModel extends ChangeNotifier {
       );
       if (result.isSuccess) {
         _volunteers = (result.data ?? [])
-            .where((volunteer) => volunteer.hasLiveLocationAvailable)
+            .where((volunteer) => volunteer.hasValidLocation)
             .toList();
         _state = _volunteers.isEmpty ? MapState.empty : MapState.success;
       }

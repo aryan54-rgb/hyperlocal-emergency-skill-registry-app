@@ -8,7 +8,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
 import '../core/constants.dart';
 import '../core/location_service.dart';
+import '../models/emergency_broadcast.dart';
 import '../viewmodels/emergency_viewmodel.dart';
+import '../viewmodels/emergency_broadcast_viewmodel.dart';
 import '../models/volunteer.dart';
 import '../widgets/animated_button.dart';
 import '../widgets/responder_card.dart';
@@ -25,10 +27,13 @@ class EmergencyRequestScreen extends StatefulWidget {
 class _EmergencyRequestScreenState extends State<EmergencyRequestScreen> {
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => EmergencyViewModel(),
-      child: Consumer<EmergencyViewModel>(
-        builder: (context, vm, _) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => EmergencyViewModel()),
+        ChangeNotifierProvider(create: (_) => EmergencyBroadcastViewModel()),
+      ],
+      child: Consumer2<EmergencyViewModel, EmergencyBroadcastViewModel>(
+        builder: (context, vm, broadcastVm, _) {
           return Scaffold(
             backgroundColor: AppColors.darkBg,
             body: SafeArea(
@@ -217,7 +222,10 @@ class _EmergencyRequestScreenState extends State<EmergencyRequestScreen> {
                             ],
                             onPressed: vm.selectedEmergencyType == null
                                 ? null
-                                : vm.submitEmergencyRequest,
+                                : () async {
+                                    broadcastVm.reset();
+                                    await vm.submitEmergencyRequest();
+                                  },
                             semanticLabel: 'Find nearby volunteer responders based on your emergency type and location',
                           ),
                         )
@@ -304,7 +312,10 @@ class _EmergencyRequestScreenState extends State<EmergencyRequestScreen> {
                                 child: ElevatedButton.icon(
                                   icon: const Icon(Icons.refresh),
                                   label: const Text('TRY AGAIN'),
-                                  onPressed: vm.retry,
+                                  onPressed: () async {
+                                    broadcastVm.reset();
+                                    await vm.retry();
+                                  },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.neonRed,
                                     padding: const EdgeInsets.symmetric(
@@ -386,7 +397,10 @@ class _EmergencyRequestScreenState extends State<EmergencyRequestScreen> {
                                   child: OutlinedButton.icon(
                                     icon: const Icon(Icons.refresh),
                                     label: const Text('TRY AGAIN'),
-                                    onPressed: vm.retry,
+                                    onPressed: () async {
+                                      broadcastVm.reset();
+                                      await vm.retry();
+                                    },
                                     style: OutlinedButton.styleFrom(
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 12,
@@ -407,23 +421,89 @@ class _EmergencyRequestScreenState extends State<EmergencyRequestScreen> {
 
                       // ---- Results Section ----
                       if (vm.state == EmergencyState.success)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            AnimatedResultCard(
-                              child: Text(
-                                'Responders near you (sorted by priority)',
-                                style: AppTextStyles.headline3()
-                                    .copyWith(color: AppColors.textPrimary),
-                                semanticsLabel: 'Results sorted by active status, availability, and distance',
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _RespondersList(
-                              responders: vm.getTopResponders(5),
-                              animated: true,
-                            ),
-                          ],
+                        Builder(
+                          builder: (_) {
+                            final topResponders =
+                                broadcastVm.topResponders(vm.responders);
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                AnimatedResultCard(
+                                  child: Text(
+                                    'Top nearby responders (3-5)',
+                                    style: AppTextStyles.headline3()
+                                        .copyWith(color: AppColors.textPrimary),
+                                    semanticsLabel: 'Results sorted by active status, availability, and distance',
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                _RespondersList(
+                                  responders: topResponders,
+                                  animated: true,
+                                ),
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: AnimatedGradientButton(
+                                    label: 'ALERT ALL NEARBY HELPERS',
+                                    icon: Icons.campaign_outlined,
+                                    isLoading: broadcastVm.isSending,
+                                    colors: const [
+                                      AppColors.neonBlue,
+                                      Color(0xFF00C2A8),
+                                    ],
+                                    onPressed: broadcastVm.isSending
+                                        ? null
+                                        : () async {
+                                            if (vm.selectedEmergencyType == null ||
+                                                vm.userLatitude == null ||
+                                                vm.userLongitude == null) {
+                                              return;
+                                            }
+                                            await broadcastVm.alertAllNearbyHelpers(
+                                              emergencyType:
+                                                  vm.selectedEmergencyType!,
+                                              latitude: vm.userLatitude!,
+                                              longitude: vm.userLongitude!,
+                                              responders: topResponders,
+                                            );
+                                          },
+                                    semanticLabel:
+                                        'Alert all matched nearby helpers at once',
+                                  ),
+                                ),
+                                if (broadcastVm.state ==
+                                    EmergencyBroadcastState.error) ...[
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.neonRed.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: AppColors.neonRed.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      broadcastVm.errorMessage ??
+                                          'Could not send broadcast alert.',
+                                      style: AppTextStyles.caption().copyWith(
+                                        color: AppColors.neonRed,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                if (broadcastVm.isSent &&
+                                    broadcastVm.request != null) ...[
+                                  const SizedBox(height: 18),
+                                  _BroadcastConfirmationCard(
+                                    request: broadcastVm.request!,
+                                    usingMockMode: broadcastVm.usedMockMode,
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
                         ),
                     ],
                   ),
@@ -554,5 +634,97 @@ class _RespondersList extends StatelessWidget {
   String? _getRankBadge(int index) {
     const badges = ['#1', '#2', '#3'];
     return index < badges.length ? badges[index] : null;
+  }
+}
+
+class _BroadcastConfirmationCard extends StatelessWidget {
+  final EmergencyBroadcastRequest request;
+  final bool usingMockMode;
+
+  const _BroadcastConfirmationCard({
+    required this.request,
+    required this.usingMockMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.darkCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.neonBlue.withOpacity(0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.check_circle_outline,
+                  color: AppColors.neonBlue, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Alert sent to ${request.notifiedCount} helpers',
+                  style: AppTextStyles.bodyBold()
+                      .copyWith(color: AppColors.textPrimary),
+                ),
+              ),
+            ],
+          ),
+          if (usingMockMode) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Mock mode: Backend unavailable, responses are simulated.',
+              style: AppTextStyles.caption().copyWith(
+                color: AppColors.textMuted,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          ...request.responderAlerts.map((alert) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ResponderCard(responder: alert.responder),
+                Padding(
+                  padding: const EdgeInsets.only(left: 6, bottom: 10),
+                  child: _ResponderStatusChip(status: alert.status),
+                ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResponderStatusChip extends StatelessWidget {
+  final ResponderAlertStatus status;
+
+  const _ResponderStatusChip({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final isAccepted = status == ResponderAlertStatus.accepted;
+    final color = isAccepted ? Colors.greenAccent : Colors.orangeAccent;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withOpacity(0.45)),
+      ),
+      child: Text(
+        isAccepted ? 'Accepted' : 'Pending',
+        style: AppTextStyles.caption().copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
   }
 }

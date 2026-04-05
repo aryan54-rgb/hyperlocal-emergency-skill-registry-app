@@ -30,6 +30,9 @@ class AppConstants {
   static const String highContrastKey = 'high_contrast';
   static const String largeTextKey = 'large_text';
   static const String notificationsKey = 'notifications_enabled';
+  static const String volunteerIdKey = 'volunteer_id';
+  static const String volunteerAvailabilityKey = 'volunteer_availability';
+  static const String volunteerLocationSharingKey = 'volunteer_location_sharing';
 
   // ---- Home Stats (displayed on home screen) ----
   static const int volunteersCount = 2400;

@@ -20,7 +20,12 @@ class DashboardScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.darkBg,
       appBar: AppBar(
-        title: const Text('IMPACT DASHBOARD'),
+        title: const Text(
+          'IMPACT DASHBOARD',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        titleSpacing: 8,
         backgroundColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
@@ -64,21 +69,27 @@ class DashboardScreen extends StatelessWidget {
                               color: Colors.white, size: 20),
                         ),
                         const SizedBox(width: 14),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'LIVES TOUCHED',
-                              style: AppTextStyles.caption().copyWith(
-                                color: AppColors.neonRed,
-                                letterSpacing: 2,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'LIVES TOUCHED',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.caption().copyWith(
+                                  color: AppColors.neonRed,
+                                  letterSpacing: 2,
+                                ),
                               ),
-                            ),
-                            Text(
-                              'Emergency Registry Impact',
-                              style: AppTextStyles.headline3(),
-                            ),
-                          ],
+                              Text(
+                                'Emergency Registry Impact',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.headline3(),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),

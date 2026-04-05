@@ -22,6 +22,7 @@ dependencies:
   # Location & Geolocation
   geolocator: ^10.1.0
   geocoding: ^2.1.1
+  google_maps_flutter: ^2.7.2
   
   # UI enhancements
   confetti: ^0.8.0
@@ -42,11 +43,12 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - .env
   
 
 flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/icons/app_icon.png"
-
 

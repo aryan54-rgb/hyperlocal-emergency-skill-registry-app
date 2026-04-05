@@ -102,26 +102,20 @@ class EmergencyViewModel extends ChangeNotifier {
   }
 
   /// Sort responders based on priority rules:
-  /// 1. Active status (active volunteers first)
-  /// 2. Availability priority (Always > Now > Later > Offline)
-  /// 3. Distance (nearest first)
+  /// 1. Availability priority (available volunteers first)
+  /// 2. Distance (nearest first)
   List<Volunteer> _sortRespondersByPriority(List<Volunteer> volunteers) {
     final sorted = [...volunteers];
 
     sorted.sort((a, b) {
-      // 1. Active status (active = higher priority)
-      if (a.isActive != b.isActive) {
-        return a.isActive ? -1 : 1;
-      }
-
-      // 2. Availability priority
+      // 1. Availability priority
       final aPriority = _getAvailabilityPriority(a.availability);
       final bPriority = _getAvailabilityPriority(b.availability);
       if (aPriority != bPriority) {
         return aPriority.compareTo(bPriority);
       }
 
-      // 3. Distance (nearest first)
+      // 2. Distance (nearest first)
       final aDistance = a.distanceKm ?? double.maxFinite;
       final bDistance = b.distanceKm ?? double.maxFinite;
       return aDistance.compareTo(bDistance);

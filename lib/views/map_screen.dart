@@ -37,7 +37,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Set<Marker> _buildMarkers(MapViewModel viewModel) {
     return viewModel.volunteers
-        .where((volunteer) => volunteer.hasLiveLocationAvailable)
+        .where((volunteer) => volunteer.hasValidLocation)
         .map((volunteer) {
       final distance = viewModel.getDistanceToVolunteer(volunteer);
       final isEmergencySkilled = viewModel.emergencyVolunteers
@@ -162,13 +162,8 @@ class _MapScreenState extends State<MapScreen> {
         builder: (context, viewModel, _) {
           final markers = _buildMarkers(viewModel);
 
-          if (viewModel.state == MapState.locationPermissionDenied) {
-            return _PermissionState(
-              message:
-                  viewModel.errorMessage ?? 'Enable location to view nearby help.',
-              onPressed: viewModel.openLocationSettings,
-            );
-          }
+          // Location permission denial no longer blocks the map.
+          // The viewmodel still loads volunteers; distance just won't show.
 
           if (viewModel.state == MapState.error) {
             return _ErrorState(
@@ -615,27 +610,8 @@ class _LoadingState extends StatelessWidget {
   }
 }
 
-class _PermissionState extends StatelessWidget {
-  const _PermissionState({
-    required this.message,
-    required this.onPressed,
-  });
 
-  final String message;
-  final VoidCallback onPressed;
 
-  @override
-  Widget build(BuildContext context) {
-    return _CenteredMessageCard(
-      icon: Icons.location_off,
-      title: 'Location Permission Required',
-      message: message,
-      actionLabel: 'Open Settings',
-      onPressed: onPressed,
-      accentColor: AppColors.neonRed,
-    );
-  }
-}
 
 class _ErrorState extends StatelessWidget {
   const _ErrorState({

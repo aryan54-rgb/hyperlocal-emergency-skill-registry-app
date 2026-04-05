@@ -6,7 +6,6 @@
 class RegisterRequest {
   final String name;
   final String phone;
-  final String? email;
   final String locality;
   final String city;
   final String state;
@@ -19,7 +18,6 @@ class RegisterRequest {
   const RegisterRequest({
     required this.name,
     required this.phone,
-    this.email,
     required this.locality,
     required this.city,
     required this.state,
@@ -34,7 +32,6 @@ class RegisterRequest {
     return {
       'name': name,
       'phone': phone,
-      if (email != null && email!.isNotEmpty) 'email': email,
       'locality': locality,
       'city': city,
       'state': state,
@@ -84,6 +81,31 @@ class EmergencyMatchRequest {
       'longitude': longitude,
       'emergency_type': emergencyType,
       'radius_km': radiusKm,
+    };
+  }
+}
+
+/// Payload for POST /api/emergency/broadcast
+/// Sends one emergency alert to multiple nearby responders at once
+class EmergencyBroadcastRequestPayload {
+  final String emergencyType;
+  final double latitude;
+  final double longitude;
+  final List<String> responderIds;
+
+  const EmergencyBroadcastRequestPayload({
+    required this.emergencyType,
+    required this.latitude,
+    required this.longitude,
+    required this.responderIds,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'emergency_type': emergencyType,
+      'latitude': latitude,
+      'longitude': longitude,
+      'responder_ids': responderIds,
     };
   }
 }

@@ -258,6 +258,61 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                     ),
 
+                    const SizedBox(height: 18),
+
+                    FadeSlideIn(
+                      delay: const Duration(milliseconds: 860),
+                      child: GestureDetector(
+                        onTap: () => Navigator.pushNamed(context, '/map'),
+                        child: Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: AppColors.glassWhite,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: AppColors.neonBlue.withOpacity(0.28),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.neonBlue.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(
+                                  Icons.map_outlined,
+                                  color: AppColors.neonBlue,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Live Volunteer Map',
+                                      style: AppTextStyles.bodyBold(),
+                                    ),
+                                    Text(
+                                      'See nearby volunteers currently sharing location',
+                                      style: AppTextStyles.caption(),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                color: AppColors.neonBlue,
+                                size: 14,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
                     const SizedBox(height: 36),
 
                     // ---- Impact Dashboard Link ----

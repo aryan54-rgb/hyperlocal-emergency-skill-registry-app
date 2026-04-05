@@ -3,7 +3,9 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_service.dart';
+import '../core/constants.dart';
 import '../core/location_service.dart';
 import '../models/request_models.dart';
 import '../models/response_models.dart';
@@ -37,7 +39,6 @@ class RegisterViewModel extends ChangeNotifier {
   // ---- Form field values ----
   String name = '';
   String phone = '';
-  String email = '';
   String locality = '';
   String city = '';
   String selectedState = '';
@@ -66,14 +67,35 @@ class RegisterViewModel extends ChangeNotifier {
 
   /// Validate all required fields; returns false and triggers shake if invalid.
   bool validate() {
-    if (name.trim().isEmpty ||
-        phone.trim().isEmpty ||
-        locality.trim().isEmpty ||
+    if (name.trim().isEmpty) {
+      _errorMessage = 'Name is required.';
+      _triggerShake();
+      return false;
+    }
+    if (phone.trim().isEmpty || phone.trim().length < 8) {
+      _errorMessage = 'Enter a valid phone number.';
+      _triggerShake();
+      return false;
+    }
+    if (locality.trim().isEmpty ||
         city.trim().isEmpty ||
-        selectedState.trim().isEmpty ||
-        selectedSkills.isEmpty ||
-        availability.isEmpty ||
-        !consentGiven) {
+        selectedState.trim().isEmpty) {
+      _errorMessage = 'Please complete your location details.';
+      _triggerShake();
+      return false;
+    }
+    if (selectedSkills.isEmpty) {
+      _errorMessage = 'Select at least one skill.';
+      _triggerShake();
+      return false;
+    }
+    if (availability.isEmpty) {
+      _errorMessage = 'Please choose your availability.';
+      _triggerShake();
+      return false;
+    }
+    if (!consentGiven) {
+      _errorMessage = 'You must agree to the consent checkbox before registering.';
       _triggerShake();
       return false;
     }
@@ -91,7 +113,21 @@ class RegisterViewModel extends ChangeNotifier {
 
   /// Call the registration API.
   Future<void> register() async {
-    if (!validate()) return;
+    _errorMessage = null;
+
+    if (_latitude == null ||
+        _longitude == null ||
+        locality.trim().isEmpty ||
+        city.trim().isEmpty ||
+        selectedState.trim().isEmpty) {
+      await autoFillLocationFromGPS();
+    }
+
+    if (!validate()) {
+      _state = RegisterState.error;
+      notifyListeners();
+      return;
+    }
 
     _state = RegisterState.loading;
     _errorMessage = null;
@@ -100,11 +136,10 @@ class RegisterViewModel extends ChangeNotifier {
     final request = RegisterRequest(
       name: name.trim(),
       phone: phone.trim(),
-      email: email.trim().isEmpty ? null : email.trim(),
       locality: locality.trim(),
       city: city.trim(),
       state: selectedState.trim(),
-      skills: selectedSkills.toList(),
+      skills: selectedSkills.map((skill) => skill.trim()).toList(),
       availability: mapAvailabilityToDb(availability),
       consentGiven: consentGiven,
       latitude: _latitude,
@@ -115,6 +150,7 @@ class RegisterViewModel extends ChangeNotifier {
 
     if (result.isSuccess) {
       _lastResponse = result.data;
+      await _persistVolunteerSession();
       _state = RegisterState.success;
     } else {
       _errorMessage = result.error;
@@ -136,14 +172,43 @@ class RegisterViewModel extends ChangeNotifier {
     _longitude = null;
     name = '';
     phone = '';
-    email = '';
     locality = '';
     city = '';
     selectedState = '';
     selectedSkills = {};
-    availability = '';
+    availability = 'available_now';
     consentGiven = false;
     notifyListeners();
+  }
+
+  Future<void> _persistVolunteerSession() async {
+    final volunteerId = _lastResponse?.volunteerId;
+    if (volunteerId == null || volunteerId.isEmpty) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(AppConstants.volunteerIdKey, volunteerId);
+    await prefs.setString(AppConstants.volunteerAvailabilityKey, availability);
+    await prefs.setBool(
+      AppConstants.volunteerLocationSharingKey,
+      consentGiven && availability != 'busy',
+    );
+
+    if (consentGiven && availability != 'busy') {
+      await ApiService.instance.toggleLocationSharing(
+        volunteerId: volunteerId,
+        isLocationShared: true,
+      );
+
+      if (_latitude != null && _longitude != null) {
+        await ApiService.instance.updateVolunteerLocation(
+          volunteerId: volunteerId,
+          latitude: _latitude!,
+          longitude: _longitude!,
+        );
+      }
+    }
   }
 
   /// Fetch current location and auto-fill location fields
@@ -181,7 +246,9 @@ class RegisterViewModel extends ChangeNotifier {
       );
 
       if (addressResult.isFailure) {
-        _locationErrorMessage = addressResult.error ?? 'Failed to get address details';
+        _locationErrorMessage =
+            'GPS location captured, but address lookup failed. '
+            'Please fill locality, city, and state manually.';
         _isGettingLocation = false;
         notifyListeners();
         return;
@@ -200,8 +267,20 @@ class RegisterViewModel extends ChangeNotifier {
         selectedState = address.state!;
       }
 
+      if (locality.trim().isEmpty ||
+          city.trim().isEmpty ||
+          selectedState.trim().isEmpty) {
+        _locationErrorMessage =
+            'GPS coordinates were captured, but some address details were incomplete. '
+            'Please review locality, city, and state before registering.';
+      }
+
       _isGettingLocation = false;
-      _locationErrorMessage = null;
+      if (locality.trim().isNotEmpty &&
+          city.trim().isNotEmpty &&
+          selectedState.trim().isNotEmpty) {
+        _locationErrorMessage = null;
+      }
       notifyListeners();
     } catch (e) {
       _locationErrorMessage = 'Error getting location: ${e.toString()}';
@@ -213,12 +292,16 @@ class RegisterViewModel extends ChangeNotifier {
 String mapAvailabilityToDb(String uiValue) {
   switch (uiValue) {
     case 'Available Now':
+    case 'available_now':
       return 'available_now';
     case 'Within 30 Minutes':
+    case 'within_30_min':
       return 'within_30_min';
     case 'Busy':
+    case 'Currently Busy':
+    case 'busy':
       return 'busy';
     default:
-      return 'available_now';
+      return uiValue;
   }
 }

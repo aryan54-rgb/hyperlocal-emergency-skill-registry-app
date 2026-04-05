@@ -7,7 +7,6 @@ class SupabaseService {
   Future<Map<String, dynamic>> registerVolunteer({
     required String name,
     required String phone,
-    String? email,
     required String locality,
     required String city,
     required String state,
@@ -15,20 +14,20 @@ class SupabaseService {
     required String availability,
     required bool consent,
   }) async {
-    final response = await _client.rpc(
-      'register_volunteer',
-      params: {
-        'p_name': name,
-        'p_phone': phone,
-        'p_email': email,
-        'p_locality': locality,
-        'p_city': city,
-        'p_state': state,
-        'p_skills': skills,
-        'p_availability': availability,
-        'p_consent': consent,
-      },
-    );
+    final response = await _client
+        .from('volunteers')
+        .insert({
+          'name': name.trim(),
+          'phone': phone.trim(),
+          'locality': locality.trim(),
+          'city': city.trim(),
+          'state': state.trim(),
+          'skills': skills.map((skill) => skill.trim()).toList(),
+          'availability': availability.trim(),
+          'consent_given': consent,
+        })
+        .select('id, created_at')
+        .single();
 
     return response;
   }

@@ -104,6 +104,11 @@ class LocationService {
   /// Returns true if permission granted, false otherwise
   Future<bool> requestLocationPermission() async {
     try {
+      final existingPermission = await Geolocator.checkPermission();
+      if (existingPermission == LocationPermission.deniedForever) {
+        return false;
+      }
+
       final permission = await Geolocator.requestPermission();
 
       switch (permission) {
@@ -162,12 +167,25 @@ class LocationService {
       // Check if permission is granted
       final hasPermission = await hasLocationPermission();
       if (!hasPermission) {
+        final currentPermission = await Geolocator.checkPermission();
+        if (currentPermission == LocationPermission.deniedForever) {
+          return LocationApiResult.failure(
+            'Location permission was denied permanently',
+            LocationErrorType.permissionDeniedForever,
+          );
+        }
+
         // Try to request permission
         final permGranted = await requestLocationPermission();
         if (!permGranted) {
+          final refreshedPermission = await Geolocator.checkPermission();
           return LocationApiResult.failure(
-            'Location permission denied',
-            LocationErrorType.permissionDenied,
+            refreshedPermission == LocationPermission.deniedForever
+                ? 'Location permission was denied permanently'
+                : 'Location permission denied',
+            refreshedPermission == LocationPermission.deniedForever
+                ? LocationErrorType.permissionDeniedForever
+                : LocationErrorType.permissionDenied,
           );
         }
       }
@@ -206,7 +224,10 @@ class LocationService {
   /// Useful when permission is denied or services are disabled
   Future<void> openLocationSettings() async {
     try {
-      await Geolocator.openLocationSettings();
+      final openedAppSettings = await Geolocator.openAppSettings();
+      if (!openedAppSettings) {
+        await Geolocator.openLocationSettings();
+      }
     } catch (e) {
         print('Error opening location settings: $e');
     }
@@ -245,8 +266,13 @@ class LocationService {
 
       final place = placemarks.first;
       final result = ReverseGeocodeResult(
-        locality: place.thoroughfare ?? place.subLocality,
-        city: place.locality ?? place.administrativeArea,
+        locality: place.subLocality ??
+            place.locality ??
+            place.thoroughfare ??
+            place.name,
+        city: place.locality ??
+            place.subAdministrativeArea ??
+            place.administrativeArea,
         state: place.administrativeArea,
         country: place.country,
         postalCode: place.postalCode,

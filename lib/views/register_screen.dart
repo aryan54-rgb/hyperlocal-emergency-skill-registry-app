@@ -26,7 +26,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // Text controllers for form fields
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
   final _localityCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
   final _stateCtrl = TextEditingController();
@@ -42,7 +41,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _confetti.dispose();
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
-    _emailCtrl.dispose();
     _localityCtrl.dispose();
     _cityCtrl.dispose();
     _stateCtrl.dispose();
@@ -50,6 +48,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _submit(RegisterViewModel vm) async {
+    final formIsValid = _formKey.currentState?.validate() ?? false;
+    if (!formIsValid) {
+      vm.validate();
+      return;
+    }
+
     // Sync auto-filled location from viewmodel to text controllers
     if (vm.locality.isNotEmpty && _localityCtrl.text.isEmpty) {
       _localityCtrl.text = vm.locality;
@@ -64,7 +68,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // Sync all controller values to VM
     vm.name = _nameCtrl.text;
     vm.phone = _phoneCtrl.text;
-    vm.email = _emailCtrl.text;
     vm.locality = _localityCtrl.text;
     vm.city = _cityCtrl.text;
     vm.selectedState = _stateCtrl.text;
@@ -103,7 +106,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 vm.reset();
                 _nameCtrl.clear();
                 _phoneCtrl.clear();
-                _emailCtrl.clear();
                 _localityCtrl.clear();
                 _cityCtrl.clear();
                 _stateCtrl.clear();
@@ -114,7 +116,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           return Scaffold(
             backgroundColor: AppColors.darkBg,
             appBar: AppBar(
-              title: const Text('REGISTER AS VOLUNTEER'),
+              title: const Text(
+                'REGISTER AS VOLUNTEER',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              titleSpacing: 8,
               backgroundColor: Colors.transparent,
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back_ios_rounded),
@@ -171,18 +178,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             },
                           ),
                         ),
-                        const SizedBox(height: 14),
-
-                        FadeSlideIn(
-                          delay: const Duration(milliseconds: 160),
-                          child: _GlowTextField(
-                            controller: _emailCtrl,
-                            label: 'Email (Optional)',
-                            icon: Icons.email_outlined,
-                            keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.next,
-                          ),
-                        ),
 
                         const SizedBox(height: 28),
 
@@ -227,6 +222,63 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                         ),
+
+                        if (vm.latitude != null && vm.longitude != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: FadeSlideIn(
+                              delay: const Duration(milliseconds: 235),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: AppColors.neonGreen.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppColors.neonGreen.withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.gps_fixed,
+                                          color: AppColors.neonGreen,
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'CURRENT GPS LOCATION CAPTURED',
+                                          style: AppTextStyles.caption().copyWith(
+                                            color: AppColors.neonGreen,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 0.8,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Latitude: ${vm.latitude!.toStringAsFixed(6)}',
+                                      style: AppTextStyles.body().copyWith(
+                                        color: AppColors.textPrimary,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Longitude: ${vm.longitude!.toStringAsFixed(6)}',
+                                      style: AppTextStyles.body().copyWith(
+                                        color: AppColors.textPrimary,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
 
                         // ---- Location Error Message ----
                         if (vm.locationErrorMessage != null)
@@ -728,12 +780,16 @@ class _SectionLabel extends StatelessWidget {
       children: [
         Icon(icon, color: AppColors.neonRed, size: 16),
         const SizedBox(width: 8),
-        Text(
-          label,
-          style: AppTextStyles.caption().copyWith(
-            color: AppColors.neonRed,
-            letterSpacing: 1.5,
-            fontWeight: FontWeight.w700,
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.caption().copyWith(
+              color: AppColors.neonRed,
+              letterSpacing: 1.5,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],
