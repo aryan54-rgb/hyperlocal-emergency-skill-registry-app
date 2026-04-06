@@ -15,7 +15,7 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   GoogleMapController? _mapController;
   bool _hasFitCamera = false;
   Set<String> _lastMarkerIds = const {};
@@ -23,6 +23,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<MapViewModel>().initialize();
@@ -31,8 +32,22 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _mapController?.dispose();
     super.dispose();
+  }
+
+  /// Pause GPS + Realtime streams when app goes to background,
+  /// resume when it comes back. Saves battery.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final viewModel = context.read<MapViewModel>();
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      viewModel.pause();
+    } else if (state == AppLifecycleState.resumed) {
+      viewModel.resume();
+    }
   }
 
   Set<Marker> _buildMarkers(MapViewModel viewModel) {
@@ -161,9 +176,6 @@ class _MapScreenState extends State<MapScreen> {
       body: Consumer<MapViewModel>(
         builder: (context, viewModel, _) {
           final markers = _buildMarkers(viewModel);
-
-          // Location permission denial no longer blocks the map.
-          // The viewmodel still loads volunteers; distance just won't show.
 
           if (viewModel.state == MapState.error) {
             return _ErrorState(
@@ -410,6 +422,10 @@ class _WebMapFallback extends StatelessWidget {
   }
 }
 
+// ============================================================
+// LIVE SUMMARY BAR - Shows volunteer count + live indicator
+// ============================================================
+
 class _MapSummaryBar extends StatelessWidget {
   const _MapSummaryBar({required this.viewModel});
 
@@ -433,6 +449,11 @@ class _MapSummaryBar extends StatelessWidget {
         children: [
           Row(
             children: [
+              // ---- Live pulse indicator ----
+              if (viewModel.isLive) ...[
+                const _LivePulse(),
+                const SizedBox(width: 8),
+              ],
               Text(
                 '${viewModel.volunteers.length} volunteers nearby',
                 style: const TextStyle(
@@ -457,15 +478,121 @@ class _MapSummaryBar extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            '${viewModel.emergencyVolunteers.length} emergency-skilled volunteers • $updatedText',
-            style: const TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 12,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${viewModel.emergencyVolunteers.length} emergency-skilled volunteers • $updatedText',
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              if (!viewModel.isLive)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'Reconnecting...',
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
+    );
+  }
+}
+
+// ============================================================
+// LIVE PULSE INDICATOR - Pulsing green dot with "LIVE" label
+// ============================================================
+
+class _LivePulse extends StatefulWidget {
+  const _LivePulse();
+
+  @override
+  State<_LivePulse> createState() => _LivePulseState();
+}
+
+class _LivePulseState extends State<_LivePulse>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: Colors.green.withOpacity(0.15 * _animation.value + 0.05),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Colors.green.withOpacity(0.3 * _animation.value),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.green.withOpacity(_animation.value),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.withOpacity(0.35 * _animation.value),
+                      blurRadius: 6,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'LIVE',
+                style: TextStyle(
+                  color: Colors.green.withOpacity(0.7 + 0.3 * _animation.value),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -609,9 +736,6 @@ class _LoadingState extends StatelessWidget {
     );
   }
 }
-
-
-
 
 class _ErrorState extends StatelessWidget {
   const _ErrorState({

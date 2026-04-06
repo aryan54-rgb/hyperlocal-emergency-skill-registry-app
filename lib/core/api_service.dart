@@ -678,4 +678,84 @@ class ApiService {
       );
     }
   }
+
+  // ============================================================
+  // REAL-TIME VOLUNTEER LOCATION STREAM (Supabase Realtime)
+  // ============================================================
+
+  /// Subscribe to real-time volunteer location changes via Supabase Realtime.
+  ///
+  /// Uses Supabase's built-in `.stream()` which opens a WebSocket and
+  /// pushes every INSERT/UPDATE to the `volunteers` table as it happens.
+  ///
+  /// In mock mode, returns a simulated stream with position drift.
+  ///
+  /// The returned stream emits a full `List<Volunteer>` on every change.
+  /// The caller should cancel the subscription when the map screen disposes.
+  Stream<List<Volunteer>> subscribeToVolunteerLocations({
+    double? userLatitude,
+    double? userLongitude,
+  }) {
+    // ---- Mock mode: return simulated movement stream ----
+    if (useMockEmergencyData) {
+      return MockEmergencyData.mockVolunteerLocationStream(
+        userLatitude: userLatitude ?? 20.5937,
+        userLongitude: userLongitude ?? 78.9629,
+      );
+    }
+
+    // ---- Real Supabase Realtime stream ----
+    return _client
+        .from('volunteers')
+        .stream(primaryKey: ['id'])
+        .map((rows) {
+          return rows
+              .map<Volunteer>(
+                (row) => Volunteer.fromJson(Map<String, dynamic>.from(row)),
+              )
+              .where((v) =>
+                  v.hasValidLocation &&
+                  v.isLocationShared &&
+                  v.consentGiven)
+              .toList();
+        });
+  }
+
+  // ============================================================
+  // DIRECT TABLE UPDATE - Low-latency location push
+  // ============================================================
+
+  /// Update volunteer location using a direct table UPDATE (no RPC).
+  ///
+  /// This is used by the live GPS stream to push location at high frequency.
+  /// It sets latitude, longitude, last_updated, and is_location_shared in
+  /// a single call. The Supabase Realtime system then automatically pushes
+  /// the change to all subscribed clients.
+  ///
+  /// Returns true on success, false on failure (with error logged).
+  Future<bool> updateVolunteerLocationDirect({
+    required String volunteerId,
+    required double latitude,
+    required double longitude,
+  }) async {
+    try {
+      if (useMockEmergencyData) return true;
+
+      await _client
+          .from('volunteers')
+          .update({
+            'latitude': latitude,
+            'longitude': longitude,
+            'last_updated': DateTime.now().toUtc().toIso8601String(),
+            'is_location_shared': true,
+          })
+          .eq('id', volunteerId);
+
+      return true;
+    } catch (e) {
+      _logFailure('updateVolunteerLocationDirect', e);
+      return false;
+    }
+  }
 }
+

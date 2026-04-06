@@ -2,11 +2,13 @@
 // MOCK EMERGENCY DATA - Fallback for demo when backend unavailable
 // ============================================================
 
+import 'dart:async';
+import 'dart:math';
 import '../models/volunteer.dart';
 
 /// Configuration toggle for mock data mode.
 /// Set to true to use demo data when backend is not available.
-bool useMockEmergencyData = true;
+bool useMockEmergencyData = false;
 
 /// Generate realistic mock responders for demo purposes
 /// Includes varying distances, skills, and availability
@@ -206,6 +208,52 @@ class MockEmergencyData {
         isLocationShared: true,
       ),
     ];
+  }
+
+  // ============================================================
+  // MOCK REAL-TIME STREAM - Simulates live volunteer movement
+  // ============================================================
+
+  /// Returns a stream that emits updated volunteer positions every
+  /// [interval] seconds, simulating real-time movement.
+  ///
+  /// Each emission slightly drifts each volunteer's lat/lng to mimic
+  /// someone walking around. Great for demoing without a Supabase backend.
+  static Stream<List<Volunteer>> mockVolunteerLocationStream({
+    required double userLatitude,
+    required double userLongitude,
+    Duration interval = const Duration(seconds: 3),
+  }) {
+    final rng = Random();
+    List<Volunteer> current = generateMockMapVolunteers(
+      userLatitude: userLatitude,
+      userLongitude: userLongitude,
+    );
+
+    return Stream.periodic(interval, (tick) {
+      // Drift each volunteer's position slightly (simulates walking)
+      current = current.map((v) {
+        // Random drift: ±0.00005 degrees ≈ ±5 meters
+        final latDrift = (rng.nextDouble() - 0.5) * 0.0001;
+        final lngDrift = (rng.nextDouble() - 0.5) * 0.0001;
+        return Volunteer(
+          id: v.id,
+          name: v.name,
+          phone: v.phone,
+          locality: v.locality,
+          city: v.city,
+          state: v.state,
+          skills: v.skills,
+          availability: v.availability,
+          consentGiven: v.consentGiven,
+          latitude: (v.latitude ?? 0) + latDrift,
+          longitude: (v.longitude ?? 0) + lngDrift,
+          lastUpdated: DateTime.now(),
+          isLocationShared: true,
+        );
+      }).toList();
+      return current;
+    });
   }
 
   /// Check if emergency type is valid for mock generation

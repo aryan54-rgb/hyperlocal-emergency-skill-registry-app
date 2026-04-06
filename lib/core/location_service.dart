@@ -220,6 +220,85 @@ class LocationService {
     }
   }
 
+  // ============================================================
+  // LIVE POSITION STREAM - Continuous GPS tracking
+  // ============================================================
+
+  /// Get a continuous stream of position updates for live tracking.
+  ///
+  /// Emits a new [LocationResult] whenever the device moves >= [distanceFilter]
+  /// meters. Uses high accuracy GPS.
+  ///
+  /// The caller is responsible for cancelling the stream subscription
+  /// when done (e.g. when the map screen is disposed).
+  ///
+  /// Example:
+  /// ```dart
+  /// final sub = LocationService.instance.getPositionStream().listen((loc) {
+  ///   print('Moved to ${loc.latitude}, ${loc.longitude}');
+  /// });
+  /// // Later: sub.cancel();
+  /// ```
+  Stream<LocationResult> getPositionStream({
+    int distanceFilter = 10,
+  }) {
+    final controller = StreamController<LocationResult>.broadcast();
+
+    () async {
+      try {
+        final serviceEnabled = await isLocationServiceEnabled();
+        if (!serviceEnabled) {
+          controller.addError('Location services are disabled');
+          await controller.close();
+          return;
+        }
+
+        final hasPermission = await hasLocationPermission();
+        if (!hasPermission) {
+          final granted = await requestLocationPermission();
+          if (!granted) {
+            controller.addError('Location permission denied');
+            await controller.close();
+            return;
+          }
+        }
+
+        final locationSettings = LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: distanceFilter,
+        );
+
+        final subscription = Geolocator.getPositionStream(
+          locationSettings: locationSettings,
+        ).listen(
+          (position) {
+            controller.add(LocationResult(
+              latitude: position.latitude,
+              longitude: position.longitude,
+              accuracy: position.accuracy,
+              altitude: position.altitude,
+            ));
+          },
+          onError: (error) {
+            controller.addError(error);
+          },
+          onDone: () {
+            controller.close();
+          },
+        );
+
+        controller.onCancel = () {
+          subscription.cancel();
+        };
+      } catch (e) {
+        controller.addError(e);
+        await controller.close();
+      }
+    }();
+
+    return controller.stream;
+  }
+
   /// Open app settings to allow user to enable location
   /// Useful when permission is denied or services are disabled
   Future<void> openLocationSettings() async {
@@ -229,7 +308,7 @@ class LocationService {
         await Geolocator.openLocationSettings();
       }
     } catch (e) {
-        print('Error opening location settings: $e');
+      print('Error opening location settings: $e');
     }
   }
 

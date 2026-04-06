@@ -1,5 +1,9 @@
 // ============================================================
-// MAP VIEWMODEL - Live volunteer location tracking
+// MAP VIEWMODEL - Real-time live volunteer location tracking
+// ============================================================
+// Architecture:
+//   OUTBOUND: GPS position stream → Supabase (my location)
+//   INBOUND:  Supabase Realtime stream → Map markers (others)
 // ============================================================
 
 import 'dart:async';
@@ -12,11 +16,16 @@ import '../models/volunteer.dart';
 
 enum MapState { idle, loading, success, empty, error, locationPermissionDenied }
 
-/// MapViewModel manages live volunteer location display
-/// - Fetches volunteers with location sharing enabled
-/// - Calculates distances from user
-/// - Handles periodic location updates (polling)
-/// - Manages location permissions
+/// MapViewModel manages the real-time live volunteer map.
+///
+/// Two concurrent streams power the map:
+/// 1. **GPS stream** (outbound): Continuously tracks the user's position
+///    and pushes updates to Supabase so other users see them move.
+/// 2. **Realtime stream** (inbound): Subscribes to Supabase Realtime
+///    so volunteer markers update instantly when anyone moves.
+///
+/// A fallback polling timer fires every 10s if no Realtime event
+/// has been received in the last 15s (network resilience).
 class MapViewModel extends ChangeNotifier {
   MapViewModel();
 
@@ -34,9 +43,20 @@ class MapViewModel extends ChangeNotifier {
   double? _userLongitude;
   DateTime? _lastLocationUpdate;
 
-  // ---- Timer for periodic updates ----
-  Timer? _locationUpdateTimer;
-  static const Duration _defaultUpdateInterval = Duration(seconds: 45);
+  // ---- Live tracking state ----
+  bool _isLive = false;
+  DateTime? _lastRealtimeEvent;
+
+  // ---- Stream subscriptions ----
+  StreamSubscription<LocationResult>? _gpsSubscription;
+  StreamSubscription<List<Volunteer>>? _realtimeSubscription;
+  Timer? _fallbackPollTimer;
+  DateTime? _lastSupabasePush;
+
+  // ---- Configuration ----
+  static const Duration _minPushInterval = Duration(seconds: 5);
+  static const Duration _fallbackPollInterval = Duration(seconds: 10);
+  static const Duration _realtimeStaleThreshold = Duration(seconds: 15);
 
   // ---- Getters ----
   MapState get state => _state;
@@ -55,8 +75,13 @@ class MapViewModel extends ChangeNotifier {
   bool get hasLocation => _userLatitude != null && _userLongitude != null;
   bool get isEmpty => _state == MapState.empty;
 
-  /// Get volunteers highlighted (emergency-skilled)
-  /// Emergency skills: Medical, Fire, Emergency, First Aid, etc.
+  /// Whether the map is currently receiving real-time updates.
+  bool get isLive => _isLive;
+
+  /// Timestamp of the last Realtime/stream event received.
+  DateTime? get lastRealtimeEvent => _lastRealtimeEvent;
+
+  /// Get volunteers with emergency-related skills.
   List<Volunteer> get emergencyVolunteers => _volunteers
       .where((v) =>
           v.skills.any((skill) =>
@@ -89,28 +114,196 @@ class MapViewModel extends ChangeNotifier {
     return sorted;
   }
 
-  /// Initialize map view
-  /// 1. Request location permission
-  /// 2. Get current user location
-  /// 3. Fetch volunteers with location
-  /// 4. Start periodic update timer
+  // ============================================================
+  // INITIALIZATION
+  // ============================================================
+
+  /// Initialize the live map:
+  /// 1. Load stored volunteer ID and preferences
+  /// 2. Get initial user location (one-shot)
+  /// 3. Start GPS position stream (outbound)
+  /// 4. Start Supabase Realtime stream (inbound)
+  /// 5. Start fallback polling timer
   Future<void> initialize() async {
     if (_isInitialized) return;
+
+    _state = MapState.loading;
+    notifyListeners();
+
     _currentVolunteerId = await _loadStoredVolunteerId();
     _isLocationSharingEnabled = await _loadLocationSharingStatus();
-    await loadVolunteers();
-    _startLocationUpdateTimer();
+
+    // Get initial position (one-shot, best effort)
+    await _fetchUserLocationOnce();
+
+    // Start all live streams
+    _startGpsStream();
+    _startRealtimeSubscription();
+    _startFallbackPollTimer();
+
     _isInitialized = true;
   }
 
-  /// Load volunteers with location data.
-  /// Even if location permission is denied, we still fetch volunteers
-  /// so the map can display them (just without distance calculations).
-  Future<void> loadVolunteers() async {
-    // Get user location first (best effort — don't block on failure)
-    await _fetchUserLocation(setLoadingState: _volunteers.isEmpty);
+  // ============================================================
+  // OUTBOUND: GPS Stream → Supabase
+  // ============================================================
 
-    // Proceed to load volunteers regardless of location permission result.
+  /// Start continuous GPS position tracking.
+  /// Each new position updates local state and pushes to Supabase.
+  void _startGpsStream() {
+    _gpsSubscription?.cancel();
+    _gpsSubscription = LocationService.instance
+        .getPositionStream(distanceFilter: 10)
+        .listen(
+      (location) {
+        _userLatitude = location.latitude;
+        _userLongitude = location.longitude;
+        _lastLocationUpdate = DateTime.now();
+        notifyListeners();
+
+        // Push to Supabase (throttled to max 1 per 5 seconds)
+        _pushLocationToSupabase();
+      },
+      onError: (error) {
+        debugPrint('[MapViewModel] GPS stream error: $error');
+        // Don't set error state — GPS errors are non-fatal
+        // The map still works with Realtime data from other users
+      },
+    );
+  }
+
+  /// Push the current user location to Supabase, throttled.
+  void _pushLocationToSupabase() {
+    if (!_isLocationSharingEnabled ||
+        _currentVolunteerId == null ||
+        _currentVolunteerId!.isEmpty ||
+        !hasLocation) {
+      return;
+    }
+
+    // Throttle: Don't push more than once per _minPushInterval
+    final now = DateTime.now();
+    if (_lastSupabasePush != null &&
+        now.difference(_lastSupabasePush!) < _minPushInterval) {
+      return;
+    }
+    _lastSupabasePush = now;
+
+    // Fire-and-forget — don't await, don't block the stream
+    ApiService.instance.updateVolunteerLocationDirect(
+      volunteerId: _currentVolunteerId!,
+      latitude: _userLatitude!,
+      longitude: _userLongitude!,
+    );
+  }
+
+  // ============================================================
+  // INBOUND: Supabase Realtime → Map markers
+  // ============================================================
+
+  /// Subscribe to Supabase Realtime volunteer location changes.
+  /// Each emission replaces the entire volunteer list with fresh data.
+  void _startRealtimeSubscription() {
+    _realtimeSubscription?.cancel();
+    _realtimeSubscription = ApiService.instance
+        .subscribeToVolunteerLocations(
+          userLatitude: _userLatitude,
+          userLongitude: _userLongitude,
+        )
+        .listen(
+      (volunteers) {
+        _volunteers = volunteers
+            .where((v) => v.hasValidLocation)
+            .toList();
+
+        _isLive = true;
+        _lastRealtimeEvent = DateTime.now();
+
+        if (_volunteers.isEmpty) {
+          _state = MapState.empty;
+        } else {
+          _state = MapState.success;
+        }
+        notifyListeners();
+      },
+      onError: (error) {
+        debugPrint('[MapViewModel] Realtime stream error: $error');
+        _isLive = false;
+        notifyListeners();
+        // Don't set error state — fallback poll will pick up the slack
+      },
+    );
+  }
+
+  // ============================================================
+  // FALLBACK POLLING (resilience)
+  // ============================================================
+
+  /// Fallback polling timer that fires every 10s BUT only actually
+  /// fetches data if no Realtime event was received in the last 15s.
+  /// This provides resilience if the WebSocket drops.
+  void _startFallbackPollTimer() {
+    _fallbackPollTimer?.cancel();
+    _fallbackPollTimer = Timer.periodic(_fallbackPollInterval, (_) async {
+      // Only poll if Realtime seems stale
+      if (_lastRealtimeEvent != null &&
+          DateTime.now().difference(_lastRealtimeEvent!) < _realtimeStaleThreshold) {
+        return; // Realtime is working fine, skip polling
+      }
+
+      debugPrint('[MapViewModel] Realtime stale — fallback polling...');
+      _isLive = false;
+      notifyListeners();
+
+      final result = await ApiService.instance.fetchVolunteersWithLocation(
+        userLatitude: _userLatitude,
+        userLongitude: _userLongitude,
+      );
+      if (result.isSuccess) {
+        _volunteers = (result.data ?? [])
+            .where((volunteer) => volunteer.hasValidLocation)
+            .toList();
+        _state = _volunteers.isEmpty ? MapState.empty : MapState.success;
+        _lastRealtimeEvent = DateTime.now();
+        notifyListeners();
+      }
+    });
+  }
+
+  // ============================================================
+  // PUBLIC API
+  // ============================================================
+
+  /// Manual refresh — re-fetches data and restarts streams.
+  Future<void> refresh() async {
+    _state = MapState.loading;
+    notifyListeners();
+
+    await _fetchUserLocationOnce();
+
+    // Restart Realtime subscription (reconnects WebSocket)
+    _startRealtimeSubscription();
+
+    // Also do an immediate fetch for instant feedback
+    final result = await ApiService.instance.fetchVolunteersWithLocation(
+      userLatitude: _userLatitude,
+      userLongitude: _userLongitude,
+    );
+    if (result.isSuccess) {
+      _volunteers = (result.data ?? [])
+          .where((volunteer) => volunteer.hasValidLocation)
+          .toList();
+      _state = _volunteers.isEmpty ? MapState.empty : MapState.success;
+    } else {
+      _setError(result.error ?? 'Failed to load volunteers');
+    }
+    notifyListeners();
+  }
+
+  /// Load volunteers (initial fetch, also used as fallback).
+  Future<void> loadVolunteers() async {
+    await _fetchUserLocationOnce();
+
     _state = MapState.loading;
     _errorMessage = null;
     notifyListeners();
@@ -137,11 +330,6 @@ class MapViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Refresh volunteers location data
-  Future<void> refresh() async {
-    await loadVolunteers();
-  }
-
   /// Set user location manually (for testing/override)
   void setUserLocation(double latitude, double longitude) {
     _userLatitude = latitude;
@@ -149,87 +337,21 @@ class MapViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Fetch current user location
-  Future<void> _fetchUserLocation({bool setLoadingState = true}) async {
-    final previousState = _state;
-    if (setLoadingState) {
-      _state = MapState.loading;
-      notifyListeners();
-    }
-
-    final result = await LocationService.instance.getCurrentLocation();
-
-    if (result.isFailure) {
-      _locationErrorType = result.errorType;
-      // Log the location error but do NOT set the overall state to
-      // locationPermissionDenied — we still want to load volunteers.
-      debugPrint(
-        '[MapViewModel] Location error: ${LocationService.getErrorMessage(_locationErrorType)}',
-      );
-      if (!setLoadingState && previousState != MapState.loading) {
-        _state = previousState;
-      }
-      notifyListeners();
-      return;
-    }
-
-    _userLatitude = result.location!.latitude;
-    _userLongitude = result.location!.longitude;
-    _lastLocationUpdate = DateTime.now();
-    if (!setLoadingState && previousState != MapState.loading) {
-      _state = previousState;
-    }
-
-    if (_isLocationSharingEnabled &&
-        _currentVolunteerId != null &&
-        _currentVolunteerId!.isNotEmpty) {
-      unawaited(updateMyLocation(_currentVolunteerId!));
-    }
-  }
-
   /// Update user location to backend (broadcast current location)
   Future<void> updateMyLocation(String volunteerId) async {
     if (!hasLocation) {
-      // Try to get location if not already fetched
-      await _fetchUserLocation();
+      await _fetchUserLocationOnce();
     }
 
-    if (!hasLocation) {
-      return;
-    }
+    if (!hasLocation) return;
 
     _currentVolunteerId = volunteerId;
     _isLocationSharingEnabled = true;
-    await ApiService.instance.updateVolunteerLocation(
+    await ApiService.instance.updateVolunteerLocationDirect(
       volunteerId: volunteerId,
       latitude: _userLatitude!,
       longitude: _userLongitude!,
     );
-  }
-
-  /// Start timer for periodic location updates (polling)
-  void _startLocationUpdateTimer() {
-    _locationUpdateTimer?.cancel();
-    _locationUpdateTimer = Timer.periodic(_defaultUpdateInterval, (_) async {
-      await _fetchUserLocation(setLoadingState: false);
-      final result = await ApiService.instance.fetchVolunteersWithLocation(
-        userLatitude: _userLatitude,
-        userLongitude: _userLongitude,
-      );
-      if (result.isSuccess) {
-        _volunteers = (result.data ?? [])
-            .where((volunteer) => volunteer.hasValidLocation)
-            .toList();
-        _state = _volunteers.isEmpty ? MapState.empty : MapState.success;
-      }
-      notifyListeners(); // Refresh to update distances
-    });
-  }
-
-  /// Stop the timer
-  void _stopLocationUpdateTimer() {
-    _locationUpdateTimer?.cancel();
-    _locationUpdateTimer = null;
   }
 
   /// Open location settings (if permission was denied)
@@ -237,19 +359,59 @@ class MapViewModel extends ChangeNotifier {
     await LocationService.instance.openLocationSettings();
   }
 
-  /// Clean up resources
+  // ============================================================
+  // LIFECYCLE
+  // ============================================================
+
+  /// Pause all streams (call when map screen is not visible)
+  void pause() {
+    _gpsSubscription?.cancel();
+    _gpsSubscription = null;
+    _realtimeSubscription?.cancel();
+    _realtimeSubscription = null;
+    _fallbackPollTimer?.cancel();
+    _fallbackPollTimer = null;
+    _isLive = false;
+  }
+
+  /// Resume all streams (call when map screen becomes visible again)
+  void resume() {
+    _startGpsStream();
+    _startRealtimeSubscription();
+    _startFallbackPollTimer();
+  }
+
   @override
   void dispose() {
-    _stopLocationUpdateTimer();
+    pause();
     super.dispose();
   }
 
-  // ---- Private Helpers ----
+  // ============================================================
+  // PRIVATE HELPERS
+  // ============================================================
 
   void _setError(String message) {
     _state = MapState.error;
     _errorMessage = message;
     notifyListeners();
+  }
+
+  /// One-shot location fetch for initial position.
+  Future<void> _fetchUserLocationOnce() async {
+    final result = await LocationService.instance.getCurrentLocation();
+
+    if (result.isFailure) {
+      _locationErrorType = result.errorType;
+      debugPrint(
+        '[MapViewModel] Location error: ${LocationService.getErrorMessage(_locationErrorType)}',
+      );
+      return;
+    }
+
+    _userLatitude = result.location!.latitude;
+    _userLongitude = result.location!.longitude;
+    _lastLocationUpdate = DateTime.now();
   }
 
   Future<String?> _loadStoredVolunteerId() async {
