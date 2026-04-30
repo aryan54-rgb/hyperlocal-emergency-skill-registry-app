@@ -168,6 +168,4 @@ static const String baseUrl = 'https://your-api.example.com';
 This app is a **civic tech tool** and does **NOT** replace emergency services.  
 **Always call 112 first** in any life-threatening emergency.
 
----
 
-*Built with ❤️ by the Civic Tech Initiative*
