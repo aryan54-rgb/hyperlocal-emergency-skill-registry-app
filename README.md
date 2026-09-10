@@ -1,4 +1,4 @@
-# 🚨 Hyperlocal Emergency Skill Registry System
+# Hyperlocal Emergency Skill Registry System
 
 A production-ready Flutter mobile application that bridges the critical 5–10 minute gap between emergencies and professional help by connecting users with trained volunteers nearby.
 
